@@ -2227,13 +2227,23 @@ void OpenMVPlugin::extensionsInitialized()
     });
 
     // 1. Two-Way File Sync: OpenMV IDE -> VS Code
+    connect(Core::EditorManager::instance(), &Core::EditorManager::saved, [](Core::IDocument *doc) {
+        if (doc) {
+            QJsonObject msg;
+            msg[QStringLiteral("type")] = QStringLiteral("file_saved_in_ide");
+            msg[QStringLiteral("file")] = doc->filePath().toString();
+            OpenMVBridgeServer::instance()->broadcastMessage(msg);
+            qDebug() << "[OpenMV Bridge] Broadcast file saved in IDE (saved signal):" << doc->filePath().toString();
+        }
+    });
+
     connect(Core::EditorManager::instance(), &Core::EditorManager::documentStateChanged, [](Core::IDocument *doc) {
         if (doc && !doc->isModified()) {
             QJsonObject msg;
             msg[QStringLiteral("type")] = QStringLiteral("file_saved_in_ide");
             msg[QStringLiteral("file")] = doc->filePath().toString();
             OpenMVBridgeServer::instance()->broadcastMessage(msg);
-            qDebug() << "[OpenMV Bridge] Broadcast file saved in IDE:" << doc->filePath().toString();
+            qDebug() << "[OpenMV Bridge] Broadcast file saved in IDE (state changed):" << doc->filePath().toString();
         }
     });
 

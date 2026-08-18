@@ -110,14 +110,6 @@ MyPlainTextEdit::MyPlainTextEdit(qreal fontPointSizeF, QWidget *parent) : QPlain
 
 void MyPlainTextEdit::readBytes(const QByteArray &data)
 {
-    if (OpenMVBridgeServer::instance()->isRunning()) {
-        QString text = QString::fromUtf8(data);
-        if (text.isEmpty() && !data.isEmpty()) {
-            text = QString::fromLatin1(data);
-        }
-        OpenMVBridgeServer::instance()->broadcastSerialData(text);
-    }
-
     QByteArray REPLString = "raw REPL; CTRL-B to exit\r\n>OK";
 
     bool atBottom = verticalScrollBar()->value() == verticalScrollBar()->maximum();
@@ -253,6 +245,12 @@ void MyPlainTextEdit::readBytes(const QByteArray &data)
         m_shiftReg = m_shiftReg.append(data.at(i)).right(qMax(5, REPLString.size()));
 
         if(m_shiftReg.endsWith(REPLString)) buffer.append('\n');
+    }
+
+    if (!buffer.isEmpty() && OpenMVBridgeServer::instance()->isRunning()) {
+        QString cleanText = QString::fromUtf8(buffer);
+        if (cleanText.isEmpty()) cleanText = QString::fromLatin1(buffer);
+        OpenMVBridgeServer::instance()->broadcastSerialData(cleanText);
     }
 
     for(const Utils::FormattedText &text : m_handler.parseText(Utils::FormattedText(QString::fromUtf8(buffer))))
