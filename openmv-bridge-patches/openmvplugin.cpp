@@ -2226,53 +2226,53 @@ void OpenMVPlugin::extensionsInitialized()
         OpenMVAutoWatcher::instance()->watchFile(path.toString());
     });
 
-    // 1. Two-Way Real-time Live Sync: OpenMV IDE -> VS Code
-    auto hookDocumentSync = [](Core::IDocument *doc) {
-        if (!doc) return;
+    // 1. Two-Way Real-time Live Sync: OpenMV IDE -> VS Code (Memory buffer inspection)
+    static QMap<QString, QString> s_lastSyncedContent;
 
-        // A. Debounced Live Edit Sync (while typing in OpenMV IDE without pressing Save)
-        QTimer *debounceTimer = doc->findChild<QTimer *>(QStringLiteral("bridgeSyncDebounceTimer"));
-        if (!debounceTimer) {
-            debounceTimer = new QTimer(doc);
-            debounceTimer->setObjectName(QStringLiteral("bridgeSyncDebounceTimer"));
-            debounceTimer->setSingleShot(true);
-            debounceTimer->setInterval(250);
+    QTimer *liveSyncPollTimer = new QTimer(this);
+    liveSyncPollTimer->setInterval(250);
+    connect(liveSyncPollTimer, &QTimer::timeout, this, [this]() {
+        if (!OpenMVBridgeServer::instance()->isRunning()) return;
 
-            QObject::connect(debounceTimer, &QTimer::timeout, doc, [doc]() {
-                if (!doc || !OpenMVBridgeServer::instance()->isRunning()) return;
-                QString content;
-                if (auto textDoc = qobject_cast<TextEditor::TextDocument *>(doc)) {
-                    content = textDoc->plainText();
-                }
-                if (content.isEmpty()) {
-                    QFile file(doc->filePath().toString());
-                    if (file.open(QIODevice::ReadOnly)) {
-                        content = QString::fromUtf8(file.readAll());
-                    }
-                }
+        for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
+            if (!doc) continue;
+            auto textDoc = qobject_cast<TextEditor::TextDocument *>(doc);
+            if (!textDoc) continue;
+
+            const QString path = doc->filePath().toString();
+            if (path.isEmpty()) continue;
+
+            const QString currentText = textDoc->plainText();
+            if (!s_lastSyncedContent.contains(path)) {
+                s_lastSyncedContent[path] = currentText;
+            } else if (s_lastSyncedContent[path] != currentText) {
+                s_lastSyncedContent[path] = currentText;
                 QJsonObject msg;
                 msg[QStringLiteral("type")] = QStringLiteral("file_edited_in_ide");
-                msg[QStringLiteral("file")] = doc->filePath().toString();
-                msg[QStringLiteral("content")] = content;
+                msg[QStringLiteral("file")] = path;
+                msg[QStringLiteral("content")] = currentText;
                 OpenMVBridgeServer::instance()->broadcastMessage(msg);
-                qDebug() << "[OpenMV Bridge] Broadcast real-time live edit for:" << doc->filePath().toString();
-            });
-        }
-
-        QObject::connect(doc, &Core::IDocument::contentsChanged, doc, [debounceTimer]() {
-            if (debounceTimer && !debounceTimer->property("suppressSync").toBool()) {
-                debounceTimer->start();
+                qDebug() << "[OpenMV Bridge] Live sync memory buffer from OpenMV IDE to VS Code for:" << path;
             }
-        }, Qt::UniqueConnection);
+        }
+    });
+    liveSyncPollTimer->start();
 
-        // B. Explicit Document Save Hook (Ctrl+S or Run)
-        QObject::connect(doc, &Core::IDocument::saved, doc, [](const Utils::FilePath &filePath, bool autoSave) {
+    auto hookDocumentSave = [](Core::IDocument *doc) {
+        if (!doc) return;
+        QObject::connect(doc, &Core::IDocument::saved, doc, [doc](const Utils::FilePath &filePath, bool autoSave) {
             Q_UNUSED(autoSave);
             QString content;
-            QFile file(filePath.toString());
-            if (file.open(QIODevice::ReadOnly)) {
-                content = QString::fromUtf8(file.readAll());
+            if (auto textDoc = qobject_cast<TextEditor::TextDocument *>(doc)) {
+                content = textDoc->plainText();
             }
+            if (content.isEmpty()) {
+                QFile file(filePath.toString());
+                if (file.open(QIODevice::ReadOnly)) {
+                    content = QString::fromUtf8(file.readAll());
+                }
+            }
+            s_lastSyncedContent[filePath.toString()] = content;
             QJsonObject msg;
             msg[QStringLiteral("type")] = QStringLiteral("file_saved_in_ide");
             msg[QStringLiteral("file")] = filePath.toString();
@@ -2283,12 +2283,12 @@ void OpenMVPlugin::extensionsInitialized()
     };
 
     for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
-        hookDocumentSync(doc);
+        hookDocumentSave(doc);
     }
 
-    connect(Core::EditorManager::instance(), &Core::EditorManager::documentOpened, hookDocumentSync);
-    connect(Core::EditorManager::instance(), &Core::EditorManager::editorOpened, [hookDocumentSync](Core::IEditor *editor) {
-        if (editor) hookDocumentSync(editor->document());
+    connect(Core::EditorManager::instance(), &Core::EditorManager::documentOpened, hookDocumentSave);
+    connect(Core::EditorManager::instance(), &Core::EditorManager::editorOpened, [hookDocumentSave](Core::IEditor *editor) {
+        if (editor) hookDocumentSave(editor->document());
     });
 
     // 2. Two-Way Real-time Live Sync: VS Code -> OpenMV IDE
@@ -2300,13 +2300,8 @@ void OpenMVPlugin::extensionsInitialized()
                 if (docNorm == targetNorm || docNorm.endsWith(targetNorm) || targetNorm.endsWith(docNorm)) {
                     if (auto textDoc = qobject_cast<TextEditor::TextDocument *>(doc)) {
                         if (textDoc->plainText() != content) {
-                            if (QTimer *timer = doc->findChild<QTimer *>(QStringLiteral("bridgeSyncDebounceTimer"))) {
-                                timer->setProperty("suppressSync", true);
-                                textDoc->setPlainText(content);
-                                timer->setProperty("suppressSync", false);
-                            } else {
-                                textDoc->setPlainText(content);
-                            }
+                            s_lastSyncedContent[doc->filePath().toString()] = content;
+                            textDoc->setPlainText(content);
                             qDebug() << "[OpenMV Bridge] Live synchronized VS Code text into OpenMV editor:" << filePath;
                         }
                     }
