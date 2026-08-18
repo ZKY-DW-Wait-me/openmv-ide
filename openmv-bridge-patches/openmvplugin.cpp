@@ -2231,7 +2231,7 @@ void OpenMVPlugin::extensionsInitialized()
             if (doc && doc->filePath().toString() == filePath) {
                 if (!doc->isModified()) {
                     QString errorString;
-                    doc->reload(&errorString, Core::IDocument::ReloadFlag::ForceReload);
+                    doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
                     qDebug() << "[OpenMV Bridge] Auto-reloaded file:" << filePath;
                 }
                 break;
@@ -2244,7 +2244,7 @@ void OpenMVPlugin::extensionsInitialized()
             if (doc && doc->filePath().toString() == filePath) {
                 if (!doc->isModified()) {
                     QString errorString;
-                    doc->reload(&errorString, Core::IDocument::ReloadFlag::ForceReload);
+                    doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
                     qDebug() << "[OpenMV Bridge] Reloaded requested file from VS Code:" << filePath;
                 }
                 break;
@@ -2252,7 +2252,7 @@ void OpenMVPlugin::extensionsInitialized()
         }
     });
 
-    connect(ProjectExplorer::TaskHub::instance(), &ProjectExplorer::TaskHub::taskAdded, [](const ProjectExplorer::Task &task) {
+    connect(&ProjectExplorer::taskHub(), &ProjectExplorer::TaskHub::taskAdded, [](const ProjectExplorer::Task &task) {
         if (task.file.isEmpty()) return;
         QJsonArray items;
         QJsonObject item;
