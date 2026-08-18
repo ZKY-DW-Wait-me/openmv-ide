@@ -3095,6 +3095,12 @@ void OpenMVPlugin::extensionsInitialized()
 
     connect(Core::MessageManager::outputWindow(), &Core::OutputWindow::writeBytes, m_iodevice, &OpenMVPluginIO::mainTerminalInput);
 
+    connect(Core::MessageManager::outputWindow(), &Core::OutputWindow::textAppended, this, [](const QString &text) {
+        if (OpenMVBridgeServer::instance()->isRunning()) {
+            OpenMVBridgeServer::instance()->broadcastSerialData(text);
+        }
+    });
+
     // Route protocol debug lines into the Serial Terminal (same path as the camera's
     // serial output) instead of the default Qt handler / system console. Called from
     // the protocol/IO worker thread, so marshal to the GUI thread first.
