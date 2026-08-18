@@ -89,6 +89,8 @@
     #include <unistd.h>
 #endif
 
+#include <QFile>
+#include <QFileInfo>
 #include "openmvbridgeserver.h"
 #include "openmvautowatcher.h"
 #include <projectexplorer/taskhub.h>

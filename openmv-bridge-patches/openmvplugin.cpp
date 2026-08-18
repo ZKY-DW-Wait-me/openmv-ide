@@ -2226,25 +2226,30 @@ void OpenMVPlugin::extensionsInitialized()
         OpenMVAutoWatcher::instance()->watchFile(path.toString());
     });
 
-    // 1. Two-Way File Sync: OpenMV IDE -> VS Code
-    connect(Core::EditorManager::instance(), &Core::EditorManager::saved, [](Core::IDocument *doc) {
-        if (doc) {
+    // 1. Two-Way File Sync: OpenMV IDE -> VS Code (Hook Core::IDocument::saved for every document)
+    auto hookDocumentSave = [](Core::IDocument *doc) {
+        if (!doc) return;
+        QObject::connect(doc, &Core::IDocument::saved, doc, [](const Utils::FilePath &filePath, bool autoSave) {
+            Q_UNUSED(autoSave);
             QJsonObject msg;
             msg[QStringLiteral("type")] = QStringLiteral("file_saved_in_ide");
-            msg[QStringLiteral("file")] = doc->filePath().toString();
+            msg[QStringLiteral("file")] = filePath.toString();
+            QFile file(filePath.toString());
+            if (file.open(QIODevice::ReadOnly)) {
+                msg[QStringLiteral("content")] = QString::fromUtf8(file.readAll());
+            }
             OpenMVBridgeServer::instance()->broadcastMessage(msg);
-            qDebug() << "[OpenMV Bridge] Broadcast file saved in IDE (saved signal):" << doc->filePath().toString();
-        }
-    });
+            qDebug() << "[OpenMV Bridge] Broadcast file_saved_in_ide with content for:" << filePath.toString();
+        }, Qt::UniqueConnection);
+    };
 
-    connect(Core::EditorManager::instance(), &Core::EditorManager::documentStateChanged, [](Core::IDocument *doc) {
-        if (doc && !doc->isModified()) {
-            QJsonObject msg;
-            msg[QStringLiteral("type")] = QStringLiteral("file_saved_in_ide");
-            msg[QStringLiteral("file")] = doc->filePath().toString();
-            OpenMVBridgeServer::instance()->broadcastMessage(msg);
-            qDebug() << "[OpenMV Bridge] Broadcast file saved in IDE (state changed):" << doc->filePath().toString();
-        }
+    for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
+        hookDocumentSave(doc);
+    }
+
+    connect(Core::EditorManager::instance(), &Core::EditorManager::documentOpened, hookDocumentSave);
+    connect(Core::EditorManager::instance(), &Core::EditorManager::editorOpened, [hookDocumentSave](Core::IEditor *editor) {
+        if (editor) hookDocumentSave(editor->document());
     });
 
     // 2. Two-Way File Sync: VS Code -> OpenMV IDE (Case-insensitive path matching)
