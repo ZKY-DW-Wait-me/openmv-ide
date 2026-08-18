@@ -1,0 +1,107 @@
+{
+  "name": "openmv-bridge",
+  "displayName": "OpenMV IDE Bridge",
+  "description": "Seamlessly bridges OpenMV IDE with VS Code - syncing live syntax diagnostics, serial terminal output, and file changes for AI-assisted development.",
+  "version": "1.0.1",
+  "publisher": "openmv-community",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openmv/openmv-ide"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Debuggers",
+    "Other"
+  ],
+  "keywords": [
+    "openmv",
+    "micropython",
+    "serial",
+    "diagnostics",
+    "embedded",
+    "ai-assisted"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "openmv-bridge.connect",
+        "title": "OpenMV: Connect to OpenMV IDE",
+        "category": "OpenMV"
+      },
+      {
+        "command": "openmv-bridge.disconnect",
+        "title": "OpenMV: Disconnect from OpenMV IDE",
+        "category": "OpenMV"
+      },
+      {
+        "command": "openmv-bridge.showSerial",
+        "title": "OpenMV: Show Serial Terminal",
+        "category": "OpenMV"
+      },
+      {
+        "command": "openmv-bridge.clearSerial",
+        "title": "OpenMV: Clear Serial Output",
+        "category": "OpenMV"
+      },
+      {
+        "command": "openmv-bridge.clearDiagnostics",
+        "title": "OpenMV: Clear OpenMV Diagnostics",
+        "category": "OpenMV"
+      }
+    ],
+    "configuration": {
+      "title": "OpenMV IDE Bridge",
+      "properties": {
+        "openmvBridge.serverUrl": {
+          "type": "string",
+          "default": "ws://127.0.0.1:23888",
+          "description": "WebSocket URL of the OpenMV IDE embedded bridge server."
+        },
+        "openmvBridge.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically attempt to connect to OpenMV IDE when VS Code opens."
+        },
+        "openmvBridge.enableDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Sync syntax errors, linter warnings, and runtime exceptions from OpenMV IDE to VS Code's Problems panel."
+        },
+        "openmvBridge.enableSerialMonitor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Stream live serial terminal output (print statements, REPL, tracebacks) from OpenMV IDE into VS Code."
+        },
+        "openmvBridge.useTerminalView": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use an interactive VS Code Terminal (Pseudoterminal) instead of an Output Channel for serial output."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "npx esbuild ./src/extension.ts --bundle --outfile=./out/extension.js --external:vscode --format=cjs --platform=node"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.80.0",
+    "@types/ws": "^8.5.10",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0"
+  }
+}
