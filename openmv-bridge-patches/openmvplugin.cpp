@@ -2230,7 +2230,7 @@ void OpenMVPlugin::extensionsInitialized()
     static QMap<QString, QString> s_lastSyncedContent;
 
     QTimer *liveSyncPollTimer = new QTimer(this);
-    liveSyncPollTimer->setInterval(250);
+    liveSyncPollTimer->setInterval(600);
     connect(liveSyncPollTimer, &QTimer::timeout, this, [this]() {
         if (!OpenMVBridgeServer::instance()->isRunning()) return;
 
@@ -2301,8 +2301,36 @@ void OpenMVPlugin::extensionsInitialized()
                     if (auto textDoc = qobject_cast<TextEditor::TextDocument *>(doc)) {
                         if (textDoc->plainText() != content) {
                             s_lastSyncedContent[doc->filePath().toString()] = content;
+
+                            TextEditor::TextEditorWidget *editorWidget = nullptr;
+                            int savedCursorPos = -1;
+                            int savedScrollVal = -1;
+
+                            Core::IEditor *currentEditor = Core::EditorManager::currentEditor();
+                            if (currentEditor && currentEditor->document() == doc) {
+                                if (auto textEditor = qobject_cast<TextEditor::BaseTextEditor *>(currentEditor)) {
+                                    editorWidget = textEditor->editorWidget();
+                                    if (editorWidget) {
+                                        savedCursorPos = editorWidget->textCursor().position();
+                                        if (editorWidget->verticalScrollBar()) {
+                                            savedScrollVal = editorWidget->verticalScrollBar()->value();
+                                        }
+                                    }
+                                }
+                            }
+
                             textDoc->setPlainText(content);
-                            qDebug() << "[OpenMV Bridge] Live synchronized VS Code text into OpenMV editor:" << filePath;
+
+                            if (editorWidget) {
+                                QTextCursor cur = editorWidget->textCursor();
+                                cur.setPosition(qMin(savedCursorPos, editorWidget->document()->characterCount() - 1));
+                                editorWidget->setTextCursor(cur);
+                                if (savedScrollVal >= 0 && editorWidget->verticalScrollBar()) {
+                                    editorWidget->verticalScrollBar()->setValue(savedScrollVal);
+                                }
+                            }
+
+                            qDebug() << "[OpenMV Bridge] Live synchronized VS Code text into OpenMV editor (scroll/cursor preserved):" << filePath;
                         }
                     }
                     break;

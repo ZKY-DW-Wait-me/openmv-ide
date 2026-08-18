@@ -91,7 +91,9 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QScrollBar>
 #include <texteditor/textdocument.h>
+#include <texteditor/texteditor.h>
 #include "openmvbridgeserver.h"
 #include "openmvautowatcher.h"
 #include <projectexplorer/taskhub.h>
