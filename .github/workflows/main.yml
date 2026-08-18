@@ -1,6 +1,7 @@
 name: 'CI'
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*.*.*'
@@ -41,7 +42,7 @@ jobs:
         submodules: recursive
   
     - name: '❖ Install Windows Certificates (1/3)'
-      if: matrix.map.host == 'windows' || matrix.map.host == 'windows-factory' || matrix.map.host == 'windows-viewer'
+      if: (matrix.map.host == 'windows' || matrix.map.host == 'windows-factory' || matrix.map.host == 'windows-viewer') && secrets.SM_CLIENT_CERT_FILE_B64 != ''
       env:
           SM_CLIENT_CERT_FILE_B64: ${{ secrets.SM_CLIENT_CERT_FILE_B64 }}
       run: |
@@ -53,11 +54,11 @@ jobs:
       shell: bash
 
     - name: '❖ Install Windows Certificates (2/3)'
-      if: matrix.map.host == 'windows' || matrix.map.host == 'windows-factory' || matrix.map.host == 'windows-viewer'
+      if: (matrix.map.host == 'windows' || matrix.map.host == 'windows-factory' || matrix.map.host == 'windows-viewer') && secrets.SM_CLIENT_CERT_FILE_B64 != ''
       uses: digicert/ssm-code-signing@v1.0.1
 
     - name: '❖ Install Windows Certificates (3/3)'
-      if: matrix.map.host == 'windows' || matrix.map.host == 'windows-factory' || matrix.map.host == 'windows-viewer'
+      if: (matrix.map.host == 'windows' || matrix.map.host == 'windows-factory' || matrix.map.host == 'windows-viewer') && secrets.SM_CLIENT_CERT_FILE_B64 != ''
       env:
         SM_API_KEY: ${{ secrets.SM_API_KEY }}
       run: smctl windows certsync --keypair-alias=$SM_API_KEY
@@ -192,7 +193,13 @@ jobs:
         SM_API_KEY: ${{ secrets.SM_API_KEY }}
         SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
         SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
-      run: python make.py
+      run: |
+        if [ -z "${{ secrets.SM_HOST }}" ]; then
+          python make.py --no-sign-application --no-sign-installer
+        else
+          python make.py
+        fi
+      shell: bash
 
     - name: '🏗 Build IDE on Windows'
       if: matrix.map.host == 'windows' && matrix.map.suffix == 'zip'
@@ -201,7 +208,13 @@ jobs:
         SM_API_KEY: ${{ secrets.SM_API_KEY }}
         SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
         SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
-      run: python make.py --no-build-installer
+      run: |
+        if [ -z "${{ secrets.SM_HOST }}" ]; then
+          python make.py --no-build-installer --no-sign-application --no-sign-installer
+        else
+          python make.py --no-build-installer
+        fi
+      shell: bash
 
     - name: '🏗 Build IDE on Windows'
       if: matrix.map.host == 'windows-factory' && matrix.map.suffix == 'exe'
@@ -299,8 +312,8 @@ jobs:
         if-no-files-found: error
 
     - name: '❖ Remove Windows Certificates'
-      if: matrix.map.host == 'windows' || matrix.map.host == 'windows-factory' || matrix.map.host == 'windows-viewer'
-      run: rm $SM_CLIENT_CERT_FILE
+      if: (matrix.map.host == 'windows' || matrix.map.host == 'windows-factory' || matrix.map.host == 'windows-viewer') && secrets.SM_CLIENT_CERT_FILE_B64 != ''
+      run: rm -f $SM_CLIENT_CERT_FILE
       shell: bash
 
     - name: '🍏 Remove Apple Certificates'

@@ -356,6 +356,18 @@ def make():
     shutil.copy(os.path.join(__folder__, "qt-creator", "LICENSE.GPL3-EXCEPT"),
                 os.path.join(installdir, "LICENSE.GPL3-EXCEPT.txt"))
 
+    # Automatically apply OpenMV Bridge modifications if present
+    bridge_patches_dir = os.path.join(__folder__, "openmv-bridge-patches")
+    if os.path.isdir(bridge_patches_dir):
+        target_plugin_dir = os.path.join(__folder__, "qt-creator", "src", "plugins", "openmv")
+        if os.path.isdir(target_plugin_dir):
+            for f in os.listdir(bridge_patches_dir):
+                src_f = os.path.join(bridge_patches_dir, f)
+                dst_f = os.path.join(target_plugin_dir, f)
+                if os.path.isfile(src_f):
+                    shutil.copy2(src_f, dst_f)
+                    print(f"[OpenMV Bridge] Applied bridge source: {f}")
+
     cxx_flags_init = ""
     if args.factory:
         cxx_flags_init += "-DOPENMV_FACTORY_IDE "
