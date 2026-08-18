@@ -2226,39 +2226,102 @@ void OpenMVPlugin::extensionsInitialized()
         OpenMVAutoWatcher::instance()->watchFile(path.toString());
     });
 
-    // 1. Two-Way File Sync: OpenMV IDE -> VS Code (Hook Core::IDocument::saved for every document)
-    auto hookDocumentSave = [](Core::IDocument *doc) {
+    // 1. Two-Way Real-time Live Sync: OpenMV IDE -> VS Code
+    auto hookDocumentSync = [](Core::IDocument *doc) {
         if (!doc) return;
+
+        // A. Debounced Live Edit Sync (while typing in OpenMV IDE without pressing Save)
+        QTimer *debounceTimer = doc->findChild<QTimer *>(QStringLiteral("bridgeSyncDebounceTimer"));
+        if (!debounceTimer) {
+            debounceTimer = new QTimer(doc);
+            debounceTimer->setObjectName(QStringLiteral("bridgeSyncDebounceTimer"));
+            debounceTimer->setSingleShot(true);
+            debounceTimer->setInterval(250);
+
+            QObject::connect(debounceTimer, &QTimer::timeout, doc, [doc]() {
+                if (!doc || !OpenMVBridgeServer::instance()->isRunning()) return;
+                QString content;
+                if (auto textDoc = qobject_cast<TextEditor::TextDocument *>(doc)) {
+                    content = textDoc->plainText();
+                }
+                if (content.isEmpty()) {
+                    QFile file(doc->filePath().toString());
+                    if (file.open(QIODevice::ReadOnly)) {
+                        content = QString::fromUtf8(file.readAll());
+                    }
+                }
+                QJsonObject msg;
+                msg[QStringLiteral("type")] = QStringLiteral("file_edited_in_ide");
+                msg[QStringLiteral("file")] = doc->filePath().toString();
+                msg[QStringLiteral("content")] = content;
+                OpenMVBridgeServer::instance()->broadcastMessage(msg);
+                qDebug() << "[OpenMV Bridge] Broadcast real-time live edit for:" << doc->filePath().toString();
+            });
+        }
+
+        QObject::connect(doc, &Core::IDocument::contentsChanged, doc, [debounceTimer]() {
+            if (debounceTimer && !debounceTimer->property("suppressSync").toBool()) {
+                debounceTimer->start();
+            }
+        }, Qt::UniqueConnection);
+
+        // B. Explicit Document Save Hook (Ctrl+S or Run)
         QObject::connect(doc, &Core::IDocument::saved, doc, [](const Utils::FilePath &filePath, bool autoSave) {
             Q_UNUSED(autoSave);
+            QString content;
+            QFile file(filePath.toString());
+            if (file.open(QIODevice::ReadOnly)) {
+                content = QString::fromUtf8(file.readAll());
+            }
             QJsonObject msg;
             msg[QStringLiteral("type")] = QStringLiteral("file_saved_in_ide");
             msg[QStringLiteral("file")] = filePath.toString();
-            QFile file(filePath.toString());
-            if (file.open(QIODevice::ReadOnly)) {
-                msg[QStringLiteral("content")] = QString::fromUtf8(file.readAll());
-            }
+            msg[QStringLiteral("content")] = content;
             OpenMVBridgeServer::instance()->broadcastMessage(msg);
             qDebug() << "[OpenMV Bridge] Broadcast file_saved_in_ide with content for:" << filePath.toString();
         }, Qt::UniqueConnection);
     };
 
     for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
-        hookDocumentSave(doc);
+        hookDocumentSync(doc);
     }
 
-    connect(Core::EditorManager::instance(), &Core::EditorManager::documentOpened, hookDocumentSave);
-    connect(Core::EditorManager::instance(), &Core::EditorManager::editorOpened, [hookDocumentSave](Core::IEditor *editor) {
-        if (editor) hookDocumentSave(editor->document());
+    connect(Core::EditorManager::instance(), &Core::EditorManager::documentOpened, hookDocumentSync);
+    connect(Core::EditorManager::instance(), &Core::EditorManager::editorOpened, [hookDocumentSync](Core::IEditor *editor) {
+        if (editor) hookDocumentSync(editor->document());
     });
 
-    // 2. Two-Way File Sync: VS Code -> OpenMV IDE (Case-insensitive path matching)
+    // 2. Two-Way Real-time Live Sync: VS Code -> OpenMV IDE
+    connect(OpenMVBridgeServer::instance(), &OpenMVBridgeServer::syncFileContentReceived, [this](const QString &filePath, const QString &content) {
+        const QString targetNorm = QDir::fromNativeSeparators(filePath).toLower();
+        for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
+            if (doc) {
+                const QString docNorm = QDir::fromNativeSeparators(doc->filePath().toString()).toLower();
+                if (docNorm == targetNorm || docNorm.endsWith(targetNorm) || targetNorm.endsWith(docNorm)) {
+                    if (auto textDoc = qobject_cast<TextEditor::TextDocument *>(doc)) {
+                        if (textDoc->plainText() != content) {
+                            if (QTimer *timer = doc->findChild<QTimer *>(QStringLiteral("bridgeSyncDebounceTimer"))) {
+                                timer->setProperty("suppressSync", true);
+                                textDoc->setPlainText(content);
+                                timer->setProperty("suppressSync", false);
+                            } else {
+                                textDoc->setPlainText(content);
+                            }
+                            qDebug() << "[OpenMV Bridge] Live synchronized VS Code text into OpenMV editor:" << filePath;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    });
+
     connect(OpenMVBridgeServer::instance(), &OpenMVBridgeServer::requestReloadFile, [this](const QString &filePath) {
         const QString targetNorm = QDir::fromNativeSeparators(filePath).toLower();
         for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
             if (doc) {
                 const QString docNorm = QDir::fromNativeSeparators(doc->filePath().toString()).toLower();
-                if (docNorm == targetNorm) {
+                if (docNorm == targetNorm || docNorm.endsWith(targetNorm) || targetNorm.endsWith(docNorm)) {
                     QString errorString;
                     doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
                     qDebug() << "[OpenMV Bridge] Instant WebSocket reload for:" << filePath;

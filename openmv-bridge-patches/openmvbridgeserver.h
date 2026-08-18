@@ -37,6 +37,7 @@ signals:
     void clientConnected(const QString &peerAddress);
     void clientDisconnected(const QString &peerAddress);
     void requestReloadFile(const QString &filePath);
+    void syncFileContentReceived(const QString &filePath, const QString &content);
     void serialInputReceived(const QString &data);
     void commandReceived(const QString &command, const QJsonObject &params);
 

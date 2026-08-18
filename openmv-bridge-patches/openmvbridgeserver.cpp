@@ -233,10 +233,18 @@ void OpenMVBridgeServer::processClientJson(QTcpSocket *socket, const QString &js
     QJsonObject obj = doc.object();
     QString type = obj.value(QStringLiteral("type")).toString();
 
-    if (type == QLatin1String("file_saved")) {
+    if (type == QLatin1String("file_saved") || type == QLatin1String("reload_file")) {
         QString file = obj.value(QStringLiteral("file")).toString();
+        if (file.isEmpty()) file = obj.value(QStringLiteral("path")).toString();
         if (!file.isEmpty()) {
             emit requestReloadFile(file);
+        }
+    } else if (type == QLatin1String("sync_file_content")) {
+        QString file = obj.value(QStringLiteral("file")).toString();
+        if (file.isEmpty()) file = obj.value(QStringLiteral("path")).toString();
+        QString content = obj.value(QStringLiteral("content")).toString();
+        if (!file.isEmpty()) {
+            emit syncFileContentReceived(file, content);
         }
     } else if (type == QLatin1String("serial_input")) {
         QString data = obj.value(QStringLiteral("data")).toString();
