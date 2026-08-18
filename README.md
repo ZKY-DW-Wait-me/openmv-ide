@@ -1,175 +1,79 @@
-[![IDE Build 🔥](https://github.com/openmv/openmv-ide/actions/workflows/main.yml/badge.svg)](https://github.com/openmv/openmv-ide/actions/workflows/main.yml)
-[![GitHub license](https://img.shields.io/github/license/openmv/openmv-ide?label=license%20%E2%9A%96)](https://github.com/openmv/openmv-ide/blob/master/LICENSE)
-![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/openmv/openmv-ide?sort=semver)
-[![GitHub forks](https://img.shields.io/github/forks/openmv/openmv-ide?color=green)](https://github.com/openmv/openmv-ide/network)
-[![GitHub stars](https://img.shields.io/github/stars/openmv/openmv-ide?color=yellow)](https://github.com/openmv/openmv-ide/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/openmv/openmv-ide?color=orange)](https://github.com/openmv/openmv-ide/issues)
+<img width="480" src="https://raw.githubusercontent.com/openmv/openmv-media/master/logos/openmv-logo/logo.png">
 
-<img  width="480" src="https://raw.githubusercontent.com/openmv/openmv-media/master/logos/openmv-logo/logo.png">
+# OpenMV IDE & VS Code Bridge (Enhanced Edition)
 
-# OpenMV IDE based on Qt Creator
+[![License: MIT/GPL-3.0](https://img.shields.io/badge/License-GPL%203.0%20%2F%20MIT-blue.svg)](LICENSE)
+[![Platform: Windows](https://img.shields.io/badge/Platform-Windows%20x64-brightgreen.svg)]()
+[![VS Code Extension](https://img.shields.io/badge/VS%20Code%20Extension-v1.0.1-purple.svg)]()
 
-  - [Overview](#overview)
-  - [Compiling OpenMV IDE for Windows, Linux, and Mac](#compiling-openmv-ide-for-windows-linux-and-mac)
-  - [Compiling OpenMV IDE for RaspberryPi on Linux](#compiling-openmv-ide-for-raspberrypi-on-linux)
-  - [Command Line Options](#command-line-options)
-  - [Instructions for running the installer silently](#instructions-for-running-the-installer-silently)
-    + [Windows](#windows)
-    + [Linux](#linux)
-    + [Mac](#mac)
-    + [RaspberryPi](#raspberrypi)
-  - [Contributing to the project](#contributing-to-the-project)
-    + [Contribution guidelines](#contribution-guidelines)
+🚀 **OpenMV IDE + VS Code 跨编辑器实时双向协同系统**。  
+将 **VS Code 强大的现代化代码编辑生态** 与 **OpenMV IDE 专业的机器视觉硬件连接、实时图像预览、直方图分析及固件烧录能力** 深度融合。
 
-## Overview
+---
 
-OpenMV IDE is a cross platform integrated development environment for writing python code to run on your OpenMV Cam. It includes all the necessary features and tools to update your OpenMV Cam's firmware and help you develop your application quickly.
+## 🌟 核心特性 (Features)
 
-## Compiling OpenMV IDE for Windows, Linux, and Mac
+### 1. 🔄 内存级双向代码实时同步 (Two-Way Live Code Synchronization)
+- **输入空闲检测（Typing Idle Lockout）**：键盘高速输入时自动进入独占保护状态，停笔后（800ms）平滑同步，彻底杜绝打字被覆盖、丢字乱跳的问题。
+- **光标与视口平滑保持（Smooth View Preservation）**：在 OpenMV IDE 接收外部代码更新时，自动锁定当前光标字符索引与滚动条高度，屏幕视口零跳动、零晃动。
+- **无需手动保存**：直接监听内存编辑缓冲区，在 OpenMV IDE 或 VS Code 任意一处改动代码，另一处即刻生效。
 
-Install Qt (to the default location) and then:
+### 2. 🚫 彻底消除弹窗干扰 (Silent Sync & No Reload Prompts)
+- 源码底层移除了 Qt Creator 默认的 "File Changed on Disk" 模态冲突对话框，所有的双向同步完全在后台静默、平滑、无感地完成。
 
-     git clone --recursive https://github.com/openmv/openmv-ide.git
-     cd openmv-ide
-     ./make.py
+### 3. 📟 串口终端双向数据流与 REPL 交互 (Real-time Serial Terminal)
+- **实时串口转发**：OpenMV Cam 的 `print()` 输出直接流式转发到 VS Code 的 **OpenMV Terminal (伪终端)** 与 **Output Channel**。
+- **双向交互**：支持直接在 VS Code 终端中输入指令，与板载 MicroPython REPL 进行交互调试。
 
-You'll find the installer in `build`.
+### 4. 🔍 MicroPython 语法诊断与错误实时投射 (Diagnostics & Problems Sync)
+- OpenMV 内置的 MicroPython 语法检查器（LSP/Linter）生成的警告和报错，会自动同步渲染到 VS Code 的 **Problems（问题面板）** 与行内高亮波浪线。
 
-## Compiling OpenMV IDE for RaspberryPi on Linux
+---
 
-**This guide works for compiling on a `ubuntu-20.04` machine only.**
+## 📥 快速下载与使用 (Quick Start)
 
-First, you need to setup your machine:
+### 1. 获取安装包 (Releases)
+从项目 `release/` 目录或 Release 发布页下载最新预编译成品：
+- 🛠️ **OpenMV IDE 安装程序**：`openmv-ide-windows-5.0.1.exe`
+- 🧩 **VS Code 桥接扩展**：`openmv-bridge-1.0.1.vsix`
 
-     sudo apt update
-     sudo apt upgrade
+### 2. 安装 VS Code 扩展
+1. 打开 VS Code；
+2. 进入扩展面板（`Ctrl+Shift+X`），点击右上角的 `...` 菜单；
+3. 选择 **“从 VSIX 安装... (Install from VSIX...)”** 并选择 `openmv-bridge-1.0.1.vsix`；
+4. 或在命令行直接执行：
+   ```bash
+   code --install-extension openmv-bridge-1.0.1.vsix
+   ```
 
-Next you need to download a bunch of packages required for the gui:
+### 3. 运行与协同开发流程
+1. 启动 **OpenMV IDE** 并连接您的 OpenMV 摄像头（OpenMV IDE 会在后台自动开启 WebSocket 桥接服务器：`ws://127.0.0.1:23888`）；
+2. 在 **VS Code** 中打开包含 OpenMV 脚本（如 `main.py`）的工作区；
+3. VS Code 状态栏左侧会显示 `$(circuit-board) OpenMV: Connected`；
+4. 此时您可以在 VS Code 中编写 Python 代码，OpenMV IDE 负责实时显示帧缓冲区图像和视觉调试，两边代码毫秒级双向同步！
 
-     sudo apt-get install make build-essential libclang-dev ninja-build gcc git bison python3 gperf pkg-config libfontconfig1-dev libfreetype6-dev libx11-dev libx11-xcb-dev libxext-dev libxfixes-dev libxi-dev libxrender-dev libxcb1-dev libxcb-glx0-dev libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libatspi2.0-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev
+---
 
-Afterwards, you need to install the cross-compiler. Please note that by using `ubuntu-20.04` this command should install version 9 of the cross-compiler. Using a newer version of the operating system will result in a newer version of the cross-compiler which will cause linker mismatch issues between the host system and the RaspberryPi:
+## 🛠️ 从源码编译 (Build from Source)
 
-     sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+### 编译 OpenMV IDE (Windows)
+要求环境：Qt 6.5.3 (MinGW 64-bit), CMake, Ninja, Python 3.8+。
+```powershell
+git clone --recursive https://github.com/ZKY-DW-Wait-me/openmv-ide.git
+cd openmv-ide
+python make.py --no-sign-application --no-sign-installer
+```
+编译产物位于 `build/install/bin/openmvide.exe` 及 `build/openmv-ide-windows-5.0.1.exe`。
 
-Finally, the cmake build system for OpenMV IDE requires libclang to be available on the build system (though it's not used by the IDE):
-
-     sudo apt install libclang-11-dev
-
-Now it's time to install [Qt Cross-Compiled for the RaspberryPi](https://github.com/openmv/qt-raspi). Please note that this must be installed in your home directory with the username `runner` (e.g. `/home/runner`) as the cross-compile hardcodes its path when it's built:
-
-     cd /home/runner
-     wget https://github.com/openmv/qt-raspi/releases/download/v6.5.1/qt-raspi.tar.gz
-     tar -xzvf qt-raspi.tar.gz
-
-Now we can build the IDE. Please note that you need to install the `cross-compile-ldd` tool before you build as you can see in the snippet below:
-
-     git clone --recursive https://github.com/openmv/openmv-ide.git
-     cd openmv-ide
-     sudo cp cross-compile-ldd /usr/bin/aarch64-linux-gnu-ldd
-     ./make.py --rpi /home/runner/qt-raspi
-
-You'll find the installer in `build`.
-
-## Command Line Options
-
-Did you know that OpenMV IDE features command line options which allow you to automate connecting to your OpenMV Cam, updating its firmware, running scripts, and more? Pass `-h` or `--help` to OpenMV IDE on the command line to see what you can make the IDE automatically do! 
-
-## Instructions for running the installer silently
-
-The Qt Installer Framework features a robust set of command line actions. Using these you can install OpenMV IDE from the command line silently. You can also uninstall the IDE silently using the uninstaller generated by the installer. Please note that the command line installer will not automatically delete an old installation during an upgrade like when in GUI mode.
-
-### Windows
-
-The installer will need administrator privileges which it should ask for when run.
-
-     ./openmv-ide-windows-*.exe --al --am -c in
-
-And uninstall:
-
-    ./OpenMVIDEUninst.exe --am -c pr
-
-### Linux
-
-Note: `libxcb-xinerama0` may be required for the installer to run.
-
-     ./openmv-ide-linux-x86_64-*.run --al --am -c in
-     cd <openmv-ide-install-dir>
-     ./setup.sh
-
-And uninstall:
-
-     sudo ./OpenMVIDEUninstaller --am -c pr
-
-Alternatively, the installer is a tar file with a setup script:
-
-     tar -xzvf openmv-ide-linux-x86_64-*.tar.gz
-     cd openmv-ide
-     ./setup.sh
-
-And uninstall:
-
-    rm -rf openmv-ide
-
-### Mac
-
-The installer is a DMG with the app inside of it:
-
-     hdiutil attach openmv-ide-mac-*.dmg
-     sudo cp -rf /Volumes/OpenMV\ IDE/OpenMV\ IDE.app /Applications
-     sudo hdiutil detach /Volumes/OpenMV\ IDE
-
-And uninstall:
-
-    sudo rm -rf /Applications/OpenMV\ IDE.app
-
-### RaspberryPi
-
-The installer is a tar file with a setup script:
-
-     tar -xzvf openmv-ide-linux-arm64-*.tar.gz
-     cd openmv-ide
-     ./setup.sh
-
-And uninstall:
-
-    rm -rf openmv-ide
-
-## Contributing to the project
-
-Contributions are most welcome. If you are interested in contributing to the project, start by creating a fork of each of the following repositories:
-
-* https://github.com/openmv/openmv-ide.git
-* https://github.com/openmv/qt-creator.git
-
-Clone the forked openmv-ide repository, and add a remote to the main openmv-ide repository:
-```bash
-git clone --recursive https://github.com/<username>/openmv-ide.git
-git -C openmv-ide remote add upstream https://github.com/openmv/openmv-ide.git
+### 编译 VS Code 扩展
+```powershell
+cd vscode-openmv-bridge
+npm install
+npm run compile
+npx vsce package --allow-missing-repository
 ```
 
-Set the `origin` remote of the qt-creator submodule to the forked qt-creator repo:
-```bash
-git -C openmv-ide/qt-creator remote set-url origin https://github.com/<username>/qtcreator.git
-```
+---
 
-Finally add a remote to openmv's qt-creator fork:
-```bash
-git -C openmv-ide/qt-creator remote add upstream https://github.com/openmv/qt-creator.git
-```
-
-Now the repositories are ready for pull requests. To send a pull request, create a new feature branch and push it to origin, and use Github to create the pull request from the forked repository to the upstream openmv/qt-creator repository. For example:
-```bash
-git checkout -b <some_branch_name>
-<commit changes>
-git push origin -u <some_branch_name>
-```
-
-### Contribution guidelines
-Please follow the [best practices](https://developers.google.com/blockly/guides/modify/contribute/write_a_good_pr) when sending pull requests upstream. In general, the pull request should:
-* Fix one problem. Don't try to tackle multiple issues at once.
-* Split the changes into logical groups using git commits.
-* Pull request title should be less than 78 characters, and match this pattern:
-  * `<scope>:<1 space><description><.>`
-* Commit subject line should be less than 78 characters, and match this pattern:
-  * `<scope>:<1 space><description><.>`
+## 📄 开源许可证 (License)
+本项目继承 OpenMV IDE 的 GPL-3.0 许可证，VS Code 桥接扩展遵循 MIT 许可证。
