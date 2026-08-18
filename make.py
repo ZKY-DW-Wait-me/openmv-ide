@@ -462,8 +462,7 @@ def make():
                 " \"-DCMAKE_CXX_FLAGS_INIT:STRING=" + cxx_flags_init + "\"" + viewer_cmake +
             " && cmake --build . --target all" +
             " && cmake --install . --prefix install" +
-            " && cmake --install . --prefix install --component Dependencies" +
-            mv_downloaded):
+            " && cmake --install . --prefix install --component Dependencies"):
                 sys.exit("Make Failed...")
             for cleanup in ["bin", "lib", "share", "src"]:
                 p = os.path.join(builddir, cleanup)
