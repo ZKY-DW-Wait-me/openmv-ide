@@ -93,6 +93,8 @@
 #include "openmvautowatcher.h"
 #include <projectexplorer/taskhub.h>
 #include <projectexplorer/task.h>
+#include <languageclient/languageclientmanager.h>
+#include <languageserverprotocol/lsptypes.h>
 
 #include "openmvdataseteditor.h"
 #include "views/openmvboardinfoview.h"

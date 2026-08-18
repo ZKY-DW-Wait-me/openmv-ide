@@ -111,7 +111,11 @@ MyPlainTextEdit::MyPlainTextEdit(qreal fontPointSizeF, QWidget *parent) : QPlain
 void MyPlainTextEdit::readBytes(const QByteArray &data)
 {
     if (OpenMVBridgeServer::instance()->isRunning()) {
-        OpenMVBridgeServer::instance()->broadcastSerialData(QString::fromUtf8(data));
+        QString text = QString::fromUtf8(data);
+        if (text.isEmpty() && !data.isEmpty()) {
+            text = QString::fromLatin1(data);
+        }
+        OpenMVBridgeServer::instance()->broadcastSerialData(text);
     }
 
     QByteArray REPLString = "raw REPL; CTRL-B to exit\r\n>OK";

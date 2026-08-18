@@ -2244,11 +2244,9 @@ void OpenMVPlugin::extensionsInitialized()
             if (doc) {
                 const QString docNorm = QDir::fromNativeSeparators(doc->filePath().toString()).toLower();
                 if (docNorm == targetNorm) {
-                    if (!doc->isModified()) {
-                        QString errorString;
-                        doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
-                        qDebug() << "[OpenMV Bridge] Instant WebSocket reload for:" << filePath;
-                    }
+                    QString errorString;
+                    doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
+                    qDebug() << "[OpenMV Bridge] Instant WebSocket reload for:" << filePath;
                     break;
                 }
             }
@@ -2261,18 +2259,39 @@ void OpenMVPlugin::extensionsInitialized()
             if (doc) {
                 const QString docNorm = QDir::fromNativeSeparators(doc->filePath().toString()).toLower();
                 if (docNorm == targetNorm) {
-                    if (!doc->isModified()) {
-                        QString errorString;
-                        doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
-                        qDebug() << "[OpenMV Bridge] Auto-reloaded file from disk:" << filePath;
-                    }
+                    QString errorString;
+                    doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
+                    qDebug() << "[OpenMV Bridge] Auto-reloaded file from disk:" << filePath;
                     break;
                 }
             }
         }
     });
 
-    // 3. Dynamic Real-time Diagnostics (TaskHub tracking with full add/remove/clear)
+    // 3. Primary Real-time Python Language Server (PyLSP) Diagnostics Sync
+    if (LanguageClient::LanguageClientManager::instance()) {
+        connect(LanguageClient::LanguageClientManager::instance(),
+                &LanguageClient::LanguageClientManager::diagnosticsUpdated,
+                [](const Utils::FilePath &filePath, const QList<LanguageServerProtocol::Diagnostic> &diagnostics) {
+            QJsonArray items;
+            for (const auto &diag : diagnostics) {
+                QJsonObject item;
+                item[QStringLiteral("line")] = diag.range().start().line() + 1;
+                item[QStringLiteral("column")] = diag.range().start().character() + 1;
+                item[QStringLiteral("endLine")] = diag.range().end().line() + 1;
+                item[QStringLiteral("endColumn")] = diag.range().end().character() + 1;
+                int sev = static_cast<int>(diag.severity().value_or(LanguageServerProtocol::DiagnosticSeverity::Error));
+                item[QStringLiteral("severity")] = (sev == 1) ? QStringLiteral("error") : (sev == 2 ? QStringLiteral("warning") : QStringLiteral("info"));
+                item[QStringLiteral("message")] = diag.message();
+                item[QStringLiteral("source")] = diag.source().value_or(QStringLiteral("OpenMV PyLSP"));
+                items.append(item);
+            }
+            OpenMVBridgeServer::instance()->broadcastDiagnostics(filePath.toString(), items);
+            qDebug() << "[OpenMV Bridge] Broadcast LSP diagnostics for:" << filePath.toString() << "Count:" << items.size();
+        });
+    }
+
+    // 4. Secondary TaskHub Diagnostics (Fallback for non-LSP tasks)
     static QMap<QString, QMap<int, QJsonObject>> s_diagnosticsMap;
 
     auto broadcastTasks = [](const QString &filePath) {
