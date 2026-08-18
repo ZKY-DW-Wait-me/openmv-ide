@@ -159,30 +159,19 @@ def find_ninjadir():
 
 def find_ifdir():
     if sys.platform.startswith('win'):
-        ifdir = match(os.sep, r"Qt")
-        if ifdir:
-            ifdir = match(ifdir, r"Tools")
-            if ifdir:
-                ifdir = match(ifdir, r"QtInstallerFramework")
-                if ifdir:
-                    ifdir = match(ifdir, r"\d+\.\d+(\.\d+)?")
+        for root in ["C:\\", "D:\\", "E:\\", os.path.expanduser('~')]:
+            qtdir = match(root, r"Qt")
+            if qtdir:
+                tools = match(qtdir, r"Tools")
+                if tools:
+                    ifdir = match(tools, r"QtInstallerFramework")
                     if ifdir:
-                        os.environ["IFDIR"] = ifdir
-                        path = ';' + os.path.join(ifdir, "bin")
-                        os.environ["PATH"] = os.environ["PATH"] + path
-                        return ifdir
-        ifdir = match(os.path.expanduser('~'), r"Qt")
-        if ifdir:
-            ifdir = match(ifdir, r"Tools")
-            if ifdir:
-                ifdir = match(ifdir, r"QtInstallerFramework")
-                if ifdir:
-                    ifdir = match(ifdir, r"\d+\.\d+(\.\d+)?")
-                    if ifdir:
-                        os.environ["IFDIR"] = ifdir
-                        path = ';' + os.path.join(ifdir, "bin")
-                        os.environ["PATH"] = os.environ["PATH"] + path
-                        return ifdir
+                        ver = match(ifdir, r"\d+\.\d+(\.\d+)?")
+                        if ver:
+                            os.environ["IFDIR"] = ver
+                            path = ';' + os.path.join(ver, "bin")
+                            os.environ["PATH"] = os.environ["PATH"] + path
+                            return ver
     elif sys.platform.startswith('darwin'):
         ifdir = match(os.path.expanduser('~'), r"Qt")
         if ifdir:
@@ -438,12 +427,54 @@ def make():
             print("[Build] Step 3: Installing application files...")
             subprocess.run(["cmake", "--install", ".", "--prefix", "install"], cwd=builddir, check=True)
 
-            # Deploy Qt & MinGW runtime dependencies via windeployqt
+            # Comprehensive Qt & MinGW runtime deployment
+            target_bin_dir = os.path.join(installdir, "bin")
+            qt_bin_dir = os.path.join(qtdir, "bin")
+            mingw_bin_dir = os.path.join(mingwdir, "bin")
+
             windeployqt_exe = os.path.join(qtdir, "bin", "windeployqt.exe")
             target_bin = os.path.join(installdir, "bin", app_id + ".exe")
             if os.path.exists(windeployqt_exe) and os.path.exists(target_bin):
-                print("[Build] Running windeployqt to deploy runtime DLLs...")
+                print("[Build] Running windeployqt to deploy base dependencies...")
                 subprocess.run([windeployqt_exe, "--no-translations", "--compiler-runtime", target_bin], cwd=builddir, check=False)
+
+            # Copy all Qt6 DLLs from Qt bin directory to guarantee no missing plugins/modules (e.g. Qt6Qml.dll)
+            if os.path.exists(qt_bin_dir):
+                print("[Build] Bundling all Qt6 runtime DLLs...")
+                for f in os.listdir(qt_bin_dir):
+                    if f.lower().endswith(".dll"):
+                        src_f = os.path.join(qt_bin_dir, f)
+                        dst_f = os.path.join(target_bin_dir, f)
+                        if not os.path.exists(dst_f):
+                            shutil.copy2(src_f, dst_f)
+
+            # Copy all MinGW runtime DLLs
+            if os.path.exists(mingw_bin_dir):
+                for f in os.listdir(mingw_bin_dir):
+                    if f.lower().endswith(".dll"):
+                        src_f = os.path.join(mingw_bin_dir, f)
+                        dst_f = os.path.join(target_bin_dir, f)
+                        if not os.path.exists(dst_f):
+                            shutil.copy2(src_f, dst_f)
+
+            # Copy Qt plugins (platforms, imageformats, tls, styles, etc.)
+            qt_plugins_dir = os.path.join(qtdir, "plugins")
+            if os.path.exists(qt_plugins_dir):
+                for pdir in ["platforms", "styles", "imageformats", "iconengines", "tls", "networkinformation", "generic", "sqldrivers"]:
+                    src_p = os.path.join(qt_plugins_dir, pdir)
+                    dst_p = os.path.join(target_bin_dir, pdir)
+                    if os.path.exists(src_p):
+                        if os.path.exists(dst_p):
+                            shutil.rmtree(dst_p, ignore_errors=True)
+                        shutil.copytree(src_p, dst_p)
+
+            # Copy Qt QML modules if available
+            qt_qml_dir = os.path.join(qtdir, "qml")
+            dst_qml_dir = os.path.join(installdir, "qml")
+            if os.path.exists(qt_qml_dir):
+                if os.path.exists(dst_qml_dir):
+                    shutil.rmtree(dst_qml_dir, ignore_errors=True)
+                shutil.copytree(qt_qml_dir, dst_qml_dir)
 
             for toolchain in ["arm", "stedgeai"]:
                 src_tc = os.path.join(builddir, "share", "qtcreator", toolchain)
@@ -474,13 +505,14 @@ def make():
             f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\vcr.cmd\"\r\n")
             f.write("ECHO All drivers have been successfully installed! & ECHO. & PAUSE & EXIT /D\r\n")
 
-        output_dir = os.path.join(builddir, app_folder)
-        if os.path.exists(output_dir):
-            shutil.rmtree(output_dir)
-        shutil.copytree(os.path.join(builddir, "install"), output_dir)
-        zip_base = os.path.join(builddir, installer_name)
-        shutil.make_archive(zip_base, 'zip', builddir, app_folder)
-        print("Created portable zip package: " + zip_base + ".zip")
+        # Portable zip package disabled -- only the IFW installer exe is produced.
+        # output_dir = os.path.join(builddir, app_folder)
+        # if os.path.exists(output_dir):
+        #     shutil.rmtree(output_dir)
+        # shutil.copytree(os.path.join(builddir, "install"), output_dir)
+        # zip_base = os.path.join(builddir, installer_name)
+        # shutil.make_archive(zip_base, 'zip', builddir, app_folder)
+        # print("Created portable zip package: " + zip_base + ".zip")
 
         if not args.no_build_installer and ifdir:
             try:

@@ -2226,43 +2226,93 @@ void OpenMVPlugin::extensionsInitialized()
         OpenMVAutoWatcher::instance()->watchFile(path.toString());
     });
 
-    connect(OpenMVAutoWatcher::instance(), &OpenMVAutoWatcher::fileModifiedExternally, [this](const QString &filePath) {
-        for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
-            if (doc && doc->filePath().toString() == filePath) {
-                if (!doc->isModified()) {
-                    QString errorString;
-                    doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
-                    qDebug() << "[OpenMV Bridge] Auto-reloaded file:" << filePath;
-                }
-                break;
-            }
+    // 1. Two-Way File Sync: OpenMV IDE -> VS Code
+    connect(Core::EditorManager::instance(), &Core::EditorManager::documentStateChanged, [](Core::IDocument *doc) {
+        if (doc && !doc->isModified()) {
+            QJsonObject msg;
+            msg[QStringLiteral("type")] = QStringLiteral("file_saved_in_ide");
+            msg[QStringLiteral("file")] = doc->filePath().toString();
+            OpenMVBridgeServer::instance()->broadcastMessage(msg);
+            qDebug() << "[OpenMV Bridge] Broadcast file saved in IDE:" << doc->filePath().toString();
         }
     });
 
+    // 2. Two-Way File Sync: VS Code -> OpenMV IDE (Case-insensitive path matching)
     connect(OpenMVBridgeServer::instance(), &OpenMVBridgeServer::requestReloadFile, [this](const QString &filePath) {
+        const QString targetNorm = QDir::fromNativeSeparators(filePath).toLower();
         for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
-            if (doc && doc->filePath().toString() == filePath) {
-                if (!doc->isModified()) {
-                    QString errorString;
-                    doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
-                    qDebug() << "[OpenMV Bridge] Reloaded requested file from VS Code:" << filePath;
+            if (doc) {
+                const QString docNorm = QDir::fromNativeSeparators(doc->filePath().toString()).toLower();
+                if (docNorm == targetNorm) {
+                    if (!doc->isModified()) {
+                        QString errorString;
+                        doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
+                        qDebug() << "[OpenMV Bridge] Instant WebSocket reload for:" << filePath;
+                    }
+                    break;
                 }
-                break;
             }
         }
     });
 
-    connect(&ProjectExplorer::taskHub(), &ProjectExplorer::TaskHub::taskAdded, [](const ProjectExplorer::Task &task) {
-        if (task.file.isEmpty()) return;
+    connect(OpenMVAutoWatcher::instance(), &OpenMVAutoWatcher::fileModifiedExternally, [this](const QString &filePath) {
+        const QString targetNorm = QDir::fromNativeSeparators(filePath).toLower();
+        for (Core::IDocument *doc : Core::DocumentModel::openedDocuments()) {
+            if (doc) {
+                const QString docNorm = QDir::fromNativeSeparators(doc->filePath().toString()).toLower();
+                if (docNorm == targetNorm) {
+                    if (!doc->isModified()) {
+                        QString errorString;
+                        doc->reload(&errorString, Core::IDocument::FlagReload, Core::IDocument::TypeContents);
+                        qDebug() << "[OpenMV Bridge] Auto-reloaded file from disk:" << filePath;
+                    }
+                    break;
+                }
+            }
+        }
+    });
+
+    // 3. Dynamic Real-time Diagnostics (TaskHub tracking with full add/remove/clear)
+    static QMap<QString, QMap<int, QJsonObject>> s_diagnosticsMap;
+
+    auto broadcastTasks = [](const QString &filePath) {
         QJsonArray items;
+        if (s_diagnosticsMap.contains(filePath)) {
+            for (const auto &item : s_diagnosticsMap[filePath]) {
+                items.append(item);
+            }
+        }
+        OpenMVBridgeServer::instance()->broadcastDiagnostics(filePath, items);
+    };
+
+    connect(&ProjectExplorer::taskHub(), &ProjectExplorer::TaskHub::taskAdded, [broadcastTasks](const ProjectExplorer::Task &task) {
+        if (task.file.isEmpty()) return;
+        const QString filePath = task.file.toString();
         QJsonObject item;
         item[QStringLiteral("line")] = task.line;
         item[QStringLiteral("column")] = task.column;
         item[QStringLiteral("severity")] = (task.type == ProjectExplorer::Task::Error) ? QStringLiteral("error") : QStringLiteral("warning");
         item[QStringLiteral("message")] = task.description();
         item[QStringLiteral("source")] = QStringLiteral("OpenMV Linter");
-        items.append(item);
-        OpenMVBridgeServer::instance()->broadcastDiagnostics(task.file.toString(), items);
+        s_diagnosticsMap[filePath].insert(task.taskId, item);
+        broadcastTasks(filePath);
+    });
+
+    connect(&ProjectExplorer::taskHub(), &ProjectExplorer::TaskHub::taskRemoved, [broadcastTasks](const ProjectExplorer::Task &task) {
+        if (task.file.isEmpty()) return;
+        const QString filePath = task.file.toString();
+        if (s_diagnosticsMap.contains(filePath)) {
+            s_diagnosticsMap[filePath].remove(task.taskId);
+            broadcastTasks(filePath);
+        }
+    });
+
+    connect(&ProjectExplorer::taskHub(), &ProjectExplorer::TaskHub::tasksCleared, [](Utils::Id /*categoryId*/) {
+        const QStringList allFiles = s_diagnosticsMap.keys();
+        s_diagnosticsMap.clear();
+        for (const QString &file : allFiles) {
+            OpenMVBridgeServer::instance()->broadcastDiagnostics(file, QJsonArray());
+        }
     });
 
     m_stopCommand =
