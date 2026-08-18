@@ -2,7 +2,7 @@
 
 # by: Kwabena W. Agyeman - kwagyeman@openmv.io
 
-import argparse, os, re, shutil, stat, sys
+import argparse, os, re, shutil, stat, sys, datetime, fnmatch, tempfile, subprocess
 
 def match(d0, d1):
     x = [x for x in os.listdir(d0) if re.match(d1, x)]
@@ -473,42 +473,77 @@ def make():
             if os.system("cd " + builddir +
             " && python -u ../qt-creator/scripts/sign.py install/bin/" + app_id + ".exe"):
                 sys.exit("Make Failed...")
-        if not args.no_build_installer:
-            if os.system("cd " + builddir +
-            " && cd install" +
-            " && archivegen -f zip ../" + installer_archive_name + " bin lib share LICENSE.GPL3-EXCEPT.txt" +
-            " && cd .." +
-            " && python -u ../qt-creator/scripts/packageIfw.py -i " + ifdir +
-            " -v " + ideversion +
-            " --name \"" + app_name + "\" --app-id " + app_id + " --app-cased-id " + app_cased_id +
-            " -a " + installer_archive_name + " " + installer_name):
-                sys.exit("Make Failed...")
-            if not args.no_sign_installer:
-                if os.system("cd " + builddir +
-                " && python -u ../qt-creator/scripts/sign.py " + installer_name + ".exe"):
-                    sys.exit("Make Failed...")
-        else:
-            with open(os.path.join(installdir, "README.txt"), 'w') as f:
-                f.write("Please run setup.cmd to install " + app_name + "'s drivers:\r\n\r\n")
-                f.write("    Double click on setup.cmd\r\n\r\n")
-                f.write("And then to run " + app_name + ":\r\n\r\n")
-                f.write("    Double click on bin\\" + app_id + ".exe\r\n")
-            with open(os.path.join(installdir, "setup.cmd"), 'w') as f:
-                f.write("@echo off\r\n")
-                f.write("NET FILE 1>NUL 2>NUL & IF ERRORLEVEL 1 (ECHO You must right-click this file and select \"Run as administrator\" to run the setup script. & ECHO. & PAUSE & EXIT /D)\r\n")
-                f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\ftdi\\ftdi.cmd\"\r\n")
-                f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\openmv\\openmv.cmd\"\r\n")
-                f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\arduino\\arduino.cmd\"\r\n")
-                f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\dfuse.cmd\"\r\n")
-                f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\vcr.cmd\"\r\n")
-                f.write("ECHO All drivers have been successfully installed! & ECHO. & PAUSE & EXIT /D\r\n")
-            output_dir = os.path.join(builddir, app_folder)
-            if os.path.exists(output_dir):
-                shutil.rmtree(output_dir)
-            shutil.copytree(os.path.join(builddir, "install"), output_dir)
-            if os.system("cd " + output_dir +
-            " && archivegen -f zip -c 9 ../" + installer_name + ".zip bin lib share README.txt setup.cmd LICENSE.GPL3-EXCEPT.txt"):
-                sys.exit("Make Failed...")
+
+        with open(os.path.join(installdir, "README.txt"), 'w') as f:
+            f.write("Please run setup.cmd to install " + app_name + "'s drivers:\r\n\r\n")
+            f.write("    Double click on setup.cmd\r\n\r\n")
+            f.write("And then to run " + app_name + ":\r\n\r\n")
+            f.write("    Double click on bin\\" + app_id + ".exe\r\n")
+        with open(os.path.join(installdir, "setup.cmd"), 'w') as f:
+            f.write("@echo off\r\n")
+            f.write("NET FILE 1>NUL 2>NUL & IF ERRORLEVEL 1 (ECHO You must right-click this file and select \"Run as administrator\" to run the setup script. & ECHO. & PAUSE & EXIT /D)\r\n")
+            f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\ftdi\\ftdi.cmd\"\r\n")
+            f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\openmv\\openmv.cmd\"\r\n")
+            f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\arduino\\arduino.cmd\"\r\n")
+            f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\dfuse.cmd\"\r\n")
+            f.write("cmd /c \"%~dp0\\share\\qtcreator\\drivers\\vcr.cmd\"\r\n")
+            f.write("ECHO All drivers have been successfully installed! & ECHO. & PAUSE & EXIT /D\r\n")
+
+        output_dir = os.path.join(builddir, app_folder)
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+        shutil.copytree(os.path.join(builddir, "install"), output_dir)
+        zip_base = os.path.join(builddir, installer_name)
+        shutil.make_archive(zip_base, 'zip', builddir, app_folder)
+        print("Created portable zip package: " + zip_base + ".zip")
+
+        if not args.no_build_installer and ifdir:
+            try:
+                zip_installer_archive = os.path.join(builddir, installer_name + "-installer-archive")
+                shutil.make_archive(zip_installer_archive, 'zip', os.path.join(builddir, "install"))
+                binarycreator_exe = os.path.join(ifdir, "bin", "binarycreator.exe")
+                if not os.path.exists(binarycreator_exe):
+                    binarycreator_exe = os.path.join(ifdir, "bin", "binarycreator")
+                if os.path.exists(binarycreator_exe):
+                    template_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'qt-creator', 'dist', 'installer', 'ifw'))
+                    temp_ifw_dir = tempfile.mkdtemp()
+                    out_config_dir = os.path.join(temp_ifw_dir, 'config')
+                    out_packages_dir = os.path.join(temp_ifw_dir, 'packages')
+                    shutil.copytree(os.path.join(template_dir, 'packages'), out_packages_dir)
+                    shutil.copytree(os.path.join(template_dir, 'config'), out_config_dir)
+                    substs = {
+                        'version': ideversion,
+                        'display_version': ideversion,
+                        'date': datetime.date.today().isoformat(),
+                        'archives': installer_name + "-installer-archive.zip",
+                        'app_name': app_name,
+                        'app_id': app_id,
+                        'app_cased_id': app_cased_id
+                    }
+                    for root, dirnames, filenames in os.walk(out_packages_dir):
+                        for template in fnmatch.filter(filenames, '*.in'):
+                            with open(os.path.join(root, template), 'r') as f:
+                                t = f.read()
+                            with open(os.path.join(root, template[:-3]), 'w') as f:
+                                f.write(t.format(**substs))
+                            os.remove(os.path.join(root, template))
+                    for root, dirnames, filenames in os.walk(out_config_dir):
+                        for template in fnmatch.filter(filenames, '*.in'):
+                            with open(os.path.join(root, template), 'r') as f:
+                                t = f.read()
+                            with open(os.path.join(root, template[:-3]), 'w') as f:
+                                f.write(t.format(**substs))
+                            os.remove(os.path.join(root, template))
+                    data_path = os.path.join(out_packages_dir, 'io.openmv.openmvide.application', 'data')
+                    os.makedirs(data_path, exist_ok=True)
+                    shutil.copy(zip_installer_archive + ".zip", data_path)
+                    config_file = os.path.join(out_config_dir, 'config-windows.xml')
+                    target_exe = os.path.join(builddir, installer_name + ".exe")
+                    subprocess.run([binarycreator_exe, '-c', config_file, '-p', out_packages_dir, target_exe, '--offline-only'], check=True)
+                    shutil.rmtree(temp_ifw_dir, ignore_errors=True)
+                    print("Created installer exe: " + target_exe)
+            except Exception as e:
+                print("Warning: IFW installer creation: " + str(e))
 
     elif sys.platform.startswith('darwin'):
         installer_name = "openmv-ide-mac-arm-" + ideversion + ".dmg"

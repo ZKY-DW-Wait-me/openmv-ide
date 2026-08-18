@@ -13,20 +13,13 @@ on:
       - master
 
 jobs:
-  build:
-    runs-on: ${{ matrix.map.os }}
-    strategy:
-      matrix:
-        map: [{os: windows-2022, host: windows, suffix: exe},
-              {os: windows-2022, host: windows, suffix: zip}]
-      fail-fast: false
+  build-windows:
+    runs-on: windows-2022
     steps:
     - name: '❖ Fix default line endings on Windows'
-      if: matrix.map.host == 'windows'
       run: git config --global core.autocrlf input
 
     - name: '⚙ Configure PATH on Windows'
-      if: matrix.map.host == 'windows'
       run: |
         echo "C:\Program Files\Git\usr\bin" >> $GITHUB_PATH
       shell: bash
@@ -37,7 +30,6 @@ jobs:
         submodules: recursive
 
     - name: '⬇ Install Qt on Windows'
-      if: matrix.map.host == 'windows'
       uses: jurplel/install-qt-action@v4
       with:
         aqtsource: 'git+https://github.com/Kidev/aqtinstall.git@tools_ifw_fix'
@@ -50,21 +42,16 @@ jobs:
         cache: true
         tools: 'tools_cmake tools_ifw tools_ninja tools_mingw90'
 
-    - name: '🏗 Build IDE on Windows (.exe Installer)'
-      if: matrix.map.host == 'windows' && matrix.map.suffix == 'exe'
+    - name: '🏗 Build and Package OpenMV IDE'
       run: |
         python make.py --no-sign-application --no-sign-installer
       shell: bash
 
-    - name: '🏗 Build IDE on Windows (.zip Portable)'
-      if: matrix.map.host == 'windows' && matrix.map.suffix == 'zip'
-      run: |
-        python make.py --no-build-installer --no-sign-application --no-sign-installer
-      shell: bash
-
-    - name: '⬆ Upload artifacts'
+    - name: '⬆ Upload Windows Executables and Portable Archives'
       uses: actions/upload-artifact@v4
       with:
-        name: OpenMV-IDE-Windows-${{ matrix.map.suffix }}
-        path: 'build/openmv-*.${{ matrix.map.suffix }}'
-        if-no-files-found: error
+        name: OpenMV-IDE-Windows-Packages
+        path: |
+          build/openmv-*.exe
+          build/openmv-*.zip
+        if-no-files-found: warn
