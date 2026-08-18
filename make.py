@@ -464,6 +464,16 @@ def make():
             " && cmake --install . --prefix install" +
             " && cmake --install . --prefix install --component Dependencies"):
                 sys.exit("Make Failed...")
+
+            for toolchain in ["arm", "stedgeai"]:
+                src_tc = os.path.join(builddir, "share", "qtcreator", toolchain)
+                dst_tc = os.path.join(installdir, "share", "qtcreator", toolchain)
+                if os.path.exists(src_tc):
+                    os.makedirs(os.path.dirname(dst_tc), exist_ok=True)
+                    if os.path.exists(dst_tc):
+                        shutil.rmtree(dst_tc, ignore_errors=True)
+                    shutil.move(src_tc, dst_tc)
+
             for cleanup in ["bin", "lib", "share", "src"]:
                 p = os.path.join(builddir, cleanup)
                 if os.path.exists(p):
