@@ -451,28 +451,31 @@ def make():
         if args.viewer: installer_name = installer_name.replace("openmv-ide", "openmv-viewer")
         installer_archive_name = installer_name + "-installer-archive.zip"
         if not args.no_build_application:
-            res = os.system("cd " + builddir +
-            " && cmake ../qt-creator" +
-                " \"-DCMAKE_GENERATOR:STRING=Ninja\"" +
-                " \"-DCMAKE_BUILD_TYPE:STRING=Release\"" +
-                " \"-DQT_QMAKE_EXECUTABLE:FILEPATH=" + os.path.join(qtdir, "bin/qmake.exe") + "\"" +
-                " \"-DCMAKE_PREFIX_PATH:PATH=" + qtdir + "\"" +
-                " \"-DCMAKE_C_COMPILER:FILEPATH=" + os.path.join(mingwdir, "bin/gcc.exe") + "\"" +
-                " \"-DCMAKE_CXX_COMPILER:FILEPATH=" + os.path.join(mingwdir, "bin/g++.exe") + "\"" +
-                " \"-DCMAKE_CXX_FLAGS_INIT:STRING=" + cxx_flags_init + "\"" + viewer_cmake +
-            " && cmake --build . --target all" +
-            " && cmake --install . --prefix install")
-            if res != 0:
-                sys.exit("Make Failed at cmake build/install...")
+            print("[Build] Step 1: Configuring CMake...")
+            cmake_args = [
+                "cmake", "../qt-creator",
+                "-DCMAKE_GENERATOR:STRING=Ninja",
+                "-DCMAKE_BUILD_TYPE:STRING=Release",
+                f"-DQT_QMAKE_EXECUTABLE:FILEPATH={os.path.join(qtdir, 'bin', 'qmake.exe')}",
+                f"-DCMAKE_PREFIX_PATH:PATH={qtdir}",
+                f"-DCMAKE_C_COMPILER:FILEPATH={os.path.join(mingwdir, 'bin', 'gcc.exe')}",
+                f"-DCMAKE_CXX_COMPILER:FILEPATH={os.path.join(mingwdir, 'bin', 'g++.exe')}",
+                f"-DCMAKE_CXX_FLAGS_INIT:STRING={cxx_flags_init}"
+            ]
+            subprocess.run(cmake_args, cwd=builddir, check=True)
 
-            # Attempt optional component install if present
-            os.system("cd " + builddir + " && cmake --install . --prefix install --component Dependencies")
+            print("[Build] Step 2: Building targets with Ninja...")
+            subprocess.run(["cmake", "--build", ".", "--target", "all"], cwd=builddir, check=True)
+
+            print("[Build] Step 3: Installing application files...")
+            subprocess.run(["cmake", "--install", ".", "--prefix", "install"], cwd=builddir, check=True)
 
             # Deploy Qt & MinGW runtime dependencies via windeployqt
             windeployqt_exe = os.path.join(qtdir, "bin", "windeployqt.exe")
             target_bin = os.path.join(installdir, "bin", app_id + ".exe")
             if os.path.exists(windeployqt_exe) and os.path.exists(target_bin):
-                os.system(f'"{windeployqt_exe}" --no-translations --compiler-runtime "{target_bin}"')
+                print("[Build] Running windeployqt to deploy runtime DLLs...")
+                subprocess.run([windeployqt_exe, "--no-translations", "--compiler-runtime", target_bin], cwd=builddir, check=False)
 
             for toolchain in ["arm", "stedgeai"]:
                 src_tc = os.path.join(builddir, "share", "qtcreator", toolchain)
@@ -487,10 +490,6 @@ def make():
                 p = os.path.join(builddir, cleanup)
                 if os.path.exists(p):
                     shutil.rmtree(p, ignore_errors=True)
-        if not args.no_sign_application:
-            if os.system("cd " + builddir +
-            " && python -u ../qt-creator/scripts/sign.py install/bin/" + app_id + ".exe"):
-                print("Signing skipped or not available")
 
         with open(os.path.join(installdir, "README.txt"), 'w') as f:
             f.write("Please run setup.cmd to install " + app_name + "'s drivers:\r\n\r\n")
