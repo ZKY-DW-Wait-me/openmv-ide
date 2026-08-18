@@ -463,12 +463,12 @@ def make():
             " && cmake --build . --target all" +
             " && cmake --install . --prefix install" +
             " && cmake --install . --prefix install --component Dependencies" +
-            mv_downloaded +
-            " && rm -rf bin" + # Save disk space
-            " && rm -rf lib" + # Save disk space
-            " && rm -rf share" + # Save disk space
-            " && rm -rf src"): # Save disk space
+            mv_downloaded):
                 sys.exit("Make Failed...")
+            for cleanup in ["bin", "lib", "share", "src"]:
+                p = os.path.join(builddir, cleanup)
+                if os.path.exists(p):
+                    shutil.rmtree(p, ignore_errors=True)
         if not args.no_sign_application:
             if os.system("cd " + builddir +
             " && python -u ../qt-creator/scripts/sign.py install/bin/" + app_id + ".exe"):
@@ -507,7 +507,7 @@ def make():
                 shutil.rmtree(output_dir)
             shutil.copytree(os.path.join(builddir, "install"), output_dir)
             if os.system("cd " + output_dir +
-            " && archivegen -f zip -c 9 ../" + installer_name + " bin lib share README.txt setup.cmd LICENSE.GPL3-EXCEPT.txt"):
+            " && archivegen -f zip -c 9 ../" + installer_name + ".zip bin lib share README.txt setup.cmd LICENSE.GPL3-EXCEPT.txt"):
                 sys.exit("Make Failed...")
 
     elif sys.platform.startswith('darwin'):
