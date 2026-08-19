@@ -1,69 +1,135 @@
-<img width="480" src="https://raw.githubusercontent.com/openmv/openmv-media/master/logos/openmv-logo/logo.png">
+<div align="center">
+
+<img width="480" src="https://raw.githubusercontent.com/openmv/openmv-media/master/logos/openmv-logo/logo.png" alt="OpenMV Logo">
 
 # OpenMV IDE & VS Code Bridge (Enhanced Edition)
 
-[![License: MIT/GPL-3.0](https://img.shields.io/badge/License-GPL%203.0%20%2F%20MIT-blue.svg)](LICENSE)
+**跨编辑器无感协同 · 内存级双向实时同步 · 串口流式终端 · MicroPython 语法诊断投射**
+
+[![License: GPL-3.0 / MIT](https://img.shields.io/badge/License-GPL%203.0%20%2F%20MIT-blue.svg)](LICENSE)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%20x64-brightgreen.svg)]()
-[![VS Code Extension](https://img.shields.io/badge/VS%20Code%20Extension-v1.0.1-purple.svg)]()
+[![VS Code Extension](https://img.shields.io/badge/VS%20Code%20Extension-v1.0.1-purple.svg)](vscode-openmv-bridge/)
+[![Release](https://img.shields.io/badge/Release-v5.0.1--bridge-orange.svg)](release/)
 
-🚀 **OpenMV IDE + VS Code 跨编辑器实时双向协同系统**。  
-将 **VS Code 强大的现代化代码编辑生态** 与 **OpenMV IDE 专业的机器视觉硬件连接、实时图像预览、直方图分析及固件烧录能力** 深度融合。
-
----
-
-## 🌟 核心特性 (Features)
-
-### 1. 🔄 内存级双向代码实时同步 (Two-Way Live Code Synchronization)
-- **输入空闲检测（Typing Idle Lockout）**：键盘高速输入时自动进入独占保护状态，停笔后（800ms）平滑同步，彻底杜绝打字被覆盖、丢字乱跳的问题。
-- **光标与视口平滑保持（Smooth View Preservation）**：在 OpenMV IDE 接收外部代码更新时，自动锁定当前光标字符索引与滚动条高度，屏幕视口零跳动、零晃动。
-- **无需手动保存**：直接监听内存编辑缓冲区，在 OpenMV IDE 或 VS Code 任意一处改动代码，另一处即刻生效。
-
-### 2. 🚫 彻底消除弹窗干扰 (Silent Sync & No Reload Prompts)
-- 源码底层移除了 Qt Creator 默认的 "File Changed on Disk" 模态冲突对话框，所有的双向同步完全在后台静默、平滑、无感地完成。
-
-### 3. 📟 串口终端双向数据流与 REPL 交互 (Real-time Serial Terminal)
-- **实时串口转发**：OpenMV Cam 的 `print()` 输出直接流式转发到 VS Code 的 **OpenMV Terminal (伪终端)** 与 **Output Channel**。
-- **双向交互**：支持直接在 VS Code 终端中输入指令，与板载 MicroPython REPL 进行交互调试。
-
-### 4. 🔍 MicroPython 语法诊断与错误实时投射 (Diagnostics & Problems Sync)
-- OpenMV 内置的 MicroPython 语法检查器（LSP/Linter）生成的警告和报错，会自动同步渲染到 VS Code 的 **Problems（问题面板）** 与行内高亮波浪线。
+</div>
 
 ---
 
-## 📥 快速下载与使用 (Quick Start)
+## 📖 项目简介 (Overview)
 
-### 1. 获取安装包 (Releases)
-从项目 `release/` 目录或 Release 发布页下载最新预编译成品：
-- 🛠️ **OpenMV IDE 安装程序**：`openmv-ide-windows-5.0.1.exe`
-- 🧩 **VS Code 桥接扩展**：`openmv-bridge-1.0.1.vsix`
+**OpenMV IDE & VS Code Bridge** 是专为嵌入式机器视觉开发者打造的跨编辑器双向协同开发系统。
 
-### 2. 安装 VS Code 扩展
-1. 打开 VS Code；
-2. 进入扩展面板（`Ctrl+Shift+X`），点击右上角的 `...` 菜单；
-3. 选择 **“从 VSIX 安装... (Install from VSIX...)”** 并选择 `openmv-bridge-1.0.1.vsix`；
-4. 或在命令行直接执行：
-   ```bash
-   code --install-extension openmv-bridge-1.0.1.vsix
-   ```
+传统的 OpenMV 脚本开发往往受限于嵌入式 IDE 的代码编辑体验（缺乏现代化的补全、重构、多光标、丰富的主题与插件生态）。本项目通过在 **OpenMV IDE** 底层注入高性能无感 WebSocket 桥接引擎，并配合专门开发的 **VS Code Bridge 扩展插件**，彻底实现了：
 
-### 3. 运行与协同开发流程
-1. 启动 **OpenMV IDE** 并连接您的 OpenMV 摄像头（OpenMV IDE 会在后台自动开启 WebSocket 桥接服务器：`ws://127.0.0.1:23888`）；
-2. 在 **VS Code** 中打开包含 OpenMV 脚本（如 `main.py`）的工作区；
-3. VS Code 状态栏左侧会显示 `$(circuit-board) OpenMV: Connected`；
-4. 此时您可以在 VS Code 中编写 Python 代码，OpenMV IDE 负责实时显示帧缓冲区图像和视觉调试，两边代码毫秒级双向同步！
+> 💡 **“用 VS Code 写现代化 Python 代码，用 OpenMV IDE 连相机看图像与调试视觉算法”** —— 两者实时无感互联，双向同步！
 
 ---
 
-## 🛠️ 从源码编译 (Build from Source)
+## 🌟 核心特性与功能演示 (Features & Demos)
 
-### 编译 OpenMV IDE (Windows)
-要求环境：Qt 6.5.3 (MinGW 64-bit), CMake, Ninja, Python 3.8+。
+### 1. 🔌 跨编辑器一键极速连接 (Auto Connection)
+- 启动 OpenMV IDE 并连接相机后，VS Code 插件会自动探测并秒级建立本地 WebSocket 专用桥接通道。
+- VS Code 左下角状态栏实时呈现连接状态与当前连接的相机 COM 端口。
+
+<div align="center">
+  <img src="gif/connection_demo.gif" alt="OpenMV IDE 与 VS Code 连接演示" width="850">
+</div>
+
+---
+
+### 2. 🔄 内存级双向代码实时同步 (Two-Way Live Code Sync)
+- **打字空闲检测（Typing Idle Lockout）**：键盘高速输入时自动进入独占防扰状态，停笔后（800ms）平滑同步，**绝不丢字、绝不覆盖正在输入的代码**。
+- **光标与视口平滑保持（Smooth View Preservation）**：在 OpenMV IDE 接收外部更新时自动锁定当前光标位置与滚动条高度，**代码区屏幕零晃动、零跳动**。
+- **零弹窗干扰（Silent Collision Prevention）**：源码底层彻底移除了 Qt Creator 默认的 "File Changed on Disk" 模态冲突对话框，无需每次按 `Ctrl+S` 手动保存即可静默更新。
+
+<div align="center">
+  <img src="gif/two_way_sync_demo.gif" alt="双向实时同步代码演示" width="850">
+</div>
+
+---
+
+### 3. 🔍 MicroPython 语法错误与诊断实时高亮 (Real-time Diagnostics)
+- OpenMV IDE 内置的 MicroPython 语法检查器（LSP/Linter）所发现的语法错误、警告、未定义变量等信息，会实时同步映射到 VS Code 的 **Problems（问题面板）** 与编辑器代码行内红色波浪线高亮。
+
+<div align="center">
+  <img src="gif/diagnostics_demo.gif" alt="警告错误实时同步演示" width="850">
+</div>
+
+---
+
+### 4. ⚡ VS Code 专属快捷菜单 (Quick Actions Menu)
+- 点击 VS Code 状态栏的 OpenMV 图标或按下快捷键即可呼出快捷动作菜单：
+  - 🖥️ **Show OpenMV Terminal**：呼出 OpenMV 专属交互式终端；
+  - 🔄 **Reconnect to OpenMV IDE**：一键强制重连桥接通道；
+  - 🧹 **Clear Problems / Diagnostics**：一键清理所有语法错误标记；
+  - 🗑️ **Clear Serial Output**：一键清空串口终端输出缓冲区。
+
+<div align="center">
+  <img src="gif/quick_menu_demo.gif" alt="VS Code 四个设置项与快捷菜单演示" width="850">
+</div>
+
+---
+
+### 5. 📟 串口终端双向数据流与 REPL 交互 (Serial Monitor & REPL)
+- 相机运行过程中所有的 `print()` 打印输出会实时无损转发到 VS Code 的 **OpenMV Terminal (伪终端)** 与 **Output Channel**。
+- 支持直接在 VS Code 终端内输入字符与相机板载 MicroPython REPL 进行交互控制。
+
+<div align="center">
+  <img src="gif/serial_console_demo.gif" alt="串口终端数据流与 REPL 交互演示" width="850">
+</div>
+
+---
+
+## 📥 快速下载与安装 (Quick Start)
+
+### 1. 下载预编译成品
+直接前往本仓库的 [`release/`](release/) 文件夹或 GitHub Releases 下载：
+- 🛠️ **OpenMV IDE 增强版安装包**：`openmv-ide-windows-5.0.1.exe`
+- 🧩 **VS Code 桥接扩展安装包**：`openmv-bridge-1.0.1.vsix`
+
+### 2. 安装 VS Code 扩展插件
+在 VS Code 中按下 `Ctrl+Shift+X` 打开扩展视图，点击右上角 `...` 菜单选择 **“从 VSIX 安装... (Install from VSIX...)”** 并选取 `openmv-bridge-1.0.1.vsix`；  
+或直接在命令行中运行：
+```bash
+code --install-extension release/openmv-bridge-1.0.1.vsix
+```
+
+### 3. 日常开发使用流程
+1. 启动 **OpenMV IDE** 并点击左下角连接图标连接您的 OpenMV 摄像头；
+2. 在 **VS Code** 中打开存放脚本的工作区文件夹（例如打开 `main.py`）；
+3. VS Code 状态栏左下角将显示 `$(circuit-board) OpenMV: Connected`；
+4. 现在您可以在 VS Code 中尽情编写代码，OpenMV IDE 负责实时显示帧缓冲区图像与视觉调试，两端代码即写即同！
+
+---
+
+## ⚙️ 插件配置项 (Extension Settings)
+
+可在 VS Code 的 `settings.json` 中自定义以下配置项：
+
+| 配置项 | 类型 | 默认值 | 说明 |
+| :--- | :---: | :---: | :--- |
+| `openmvBridge.serverUrl` | `string` | `ws://127.0.0.1:23888` | OpenMV IDE 内部 WebSocket 桥接服务器地址 |
+| `openmvBridge.autoConnect` | `boolean` | `true` | 启动 VS Code 时是否自动连接 OpenMV IDE |
+| `openmvBridge.enableDiagnostics` | `boolean` | `true` | 是否同步 OpenMV IDE 的代码语法错误与警告到 VS Code |
+| `openmvBridge.enableSerialMonitor` | `boolean` | `true` | 是否将 OpenMV 串口数据流转发到 VS Code 终端 |
+
+---
+
+## 🛠️ 源码编译与二次开发 (Build from Source)
+
+### 编译 OpenMV IDE (Windows x64)
+- **编译工具链要求**：Qt 6.5.3 (MinGW 11.2.0 64-bit), CMake 3.25+, Ninja, Python 3.8+。
 ```powershell
+# 克隆仓库及子模块
 git clone --recursive https://github.com/ZKY-DW-Wait-me/openmv-ide.git
 cd openmv-ide
+
+# 编译并生成免签名安装包与绿色版
 python make.py --no-sign-application --no-sign-installer
 ```
-编译产物位于 `build/install/bin/openmvide.exe` 及 `build/openmv-ide-windows-5.0.1.exe`。
+编译产物位于：
+- 绿色免安装运行路径：`build/install/bin/openmvide.exe`
+- 独立安装程序路径：`build/openmv-ide-windows-5.0.1.exe`
 
 ### 编译 VS Code 扩展
 ```powershell
@@ -76,4 +142,6 @@ npx vsce package --allow-missing-repository
 ---
 
 ## 📄 开源许可证 (License)
-本项目继承 OpenMV IDE 的 GPL-3.0 许可证，VS Code 桥接扩展遵循 MIT 许可证。
+
+- OpenMV IDE 修改版源码继承官方开源许可：**GPL-3.0 License**。
+- VS Code 桥接扩展源码遵循：**MIT License**。
